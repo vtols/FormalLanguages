@@ -303,6 +303,7 @@ def print_res(res, ind=0):
         else:
             print(' ' * (ind + 1) + it)
 
+"""
 Sp = Nonterminal('S\'')
 S = Nonterminal('S')
 A = Nonterminal('A')
@@ -322,3 +323,4 @@ G = Grammar(r)
 p = Parser(G)
 res = p.parse("-((1))")
 print_res(res)
+"""
