@@ -205,7 +205,9 @@ class ParserTable:
         items = grammar.items()
         size = len(items)
 
+        "Action table"
         self.a = [dict() for i in range(size)]
+        "Goto table"
         self.g = [dict() for i in range(size)]
         self.conflict = False
         
@@ -230,7 +232,76 @@ class ParserTable:
                             "Always SHIFT if conflict happens"
                             self.a[i][at_dot] = ('S', goto_index)
             for nterm in grammar.nonterminals():
-                self.g[i][nterm] = items.index(item.goto(nterm))
+                go = item.goto(nterm)
+                if go is not None:
+                    self.g[i][nterm] = items.index(go)
+
+class Parser:
+    def __init__(self, grammar):
+        self.g = grammar
+        self.t = ParserTable(grammar)
+        self.reset()
+
+    def reset(self):
+        self.state_stack = [0]
+        self.error = False
+        self.done = False
+        self.symbol = []
+
+    def state(self):
+        return self.state_stack[-1]
+
+    def parse(self, s):
+        self.reset()
+        for c in s:
+            self.put(c)
+        return self.end()
+
+    def put(self, c):
+        if c not in self.t.a[self.state()]:
+            self.error = True
+        """
+        Maybe there is action for this input,
+        but error prevously occured
+        """
+        if self.error:
+            return
+        while True:
+            act = self.t.a[self.state()][c]
+            if act[0] == 'R':
+                self.reduce(act[1])
+            elif act[0] == 'S':
+                self.shift(c, act[1])
+                break
+            elif act[0] == 'A':
+                self.done = True
+                break
+
+    def end(self):
+        self.put('#')
+        if self.error:
+            return None
+        return self.symbol[0]
+
+    def shift(self, c, i):
+        self.symbol += [c]
+        self.state_stack += [i]
+
+    def reduce(self, rule):
+        rlen = len(rule.sequence)
+        sym = (rule.nterm.name, self.symbol[-rlen:])
+        x = rule.nterm
+        self.symbol = self.symbol[:-rlen] + [sym]
+        self.state_stack = self.state_stack[:-rlen]
+        self.state_stack += [self.t.g[self.state()][x]]
+
+def print_res(res, ind=0):
+    print(' ' * ind + res[0])
+    for it in res[1]:
+        if type(it) is tuple:
+            print_res(it, ind + 1)
+        else:
+            print(' ' * (ind + 1) + it)
 
 Sp = Nonterminal('S\'')
 S = Nonterminal('S')
@@ -248,14 +319,6 @@ r = [
 
 G = Grammar(r)
 
-pt = ParserTable(G)
-print(pt.conflict)
-for i in range(len(pt.a)):
-    print("State #" + str(i))
-    for k, v in pt.a[i].items():
-        s = k + ' '
-        if v[0] in ['S', 'R']:
-            s += v[0] + ' ' + str(v[1])
-        else:
-            s += 'A'
-        print(s)
+p = Parser(G)
+res = p.parse("-((1))")
+print_res(res)
