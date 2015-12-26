@@ -126,31 +126,20 @@ class Grammar:
                 if type(el) is Nonterminal and el not in t:
                     t += [el]
         return t
-    
-    def trace(self):
+
+    def items(self):
         r = RuleWithDot(self.rules[0], '#')
         sets = [RuleSet(self, [r])]
-        trans = []
         terms = self.terminals()
         nterms = self.nonterminals()
         i = 0
         while i < len(sets):
-            trans_from = []
-            rset = sets[i]
-            rset_trans = rset.transitions()
-            for rset_tran in rset_trans:
-                k = None
-                for j in range(len(sets)):
-                    if sets[j] == rset_tran[1]:
-                        k = j
-                        break
-                if k == None:
-                    k = len(sets)
-                    sets += [rset_tran[1]]
-                trans_from += [(rset_tran[0], k)]
-            trans += [trans_from]
+            goto_sets = sets[i].goto_all()
+            for goto_set in goto_sets:
+                if goto_set not in sets:
+                    sets += [goto_set]
             i += 1
-        return (sets, trans)
+        return sets
 
 class RuleSet:
     def __init__(self, grammar, base):
@@ -159,12 +148,12 @@ class RuleSet:
             if not base_element in self.rset:
                 self.rset += [base_element]
         self.gr = grammar
-        self.expand()
+        self.make_closure()
     
     def __eq__(self, other):
         return self.rset == other.rset
     
-    def expand(self):
+    def make_closure(self):
         for drule in self.rset:
             if not drule.end():
                 t = drule.at()
@@ -180,30 +169,68 @@ class RuleSet:
                                 ndrule = RuleWithDot(rule, lookup)
                                 if not ndrule in self.rset:
                                     self.rset += [ndrule]
-    
-    def transitions(self):
+
+    def goto_all(self):
         t = self.gr.terminals()
         p = self.gr.nonterminals() + t
         trans = []
         for tran in p:
-            if tran == '#':
-                continue
+            if tran != '#':
+                go = self.goto(tran)
+                if go is not None:
+                    trans += [go]
+        return trans
+
+    def goto(self, x):
+        goto_set = None
+        if x != '#':
             nbase = []
             for drule in self.rset:
-                if not drule.end() and drule.at() == tran:
+                if not drule.end() and drule.at() == x:
                     moved_drule = copy.copy(drule)
                     moved_drule.move()
                     nbase += [moved_drule]
-            if len(nbase) > 0:
-                nrset = RuleSet(self.gr, nbase)
-                trans += [(tran, nrset)]
-        return trans
+            "It can be empty set"
+            goto_set = RuleSet(self.gr, nbase)
+        return goto_set
 
     def __str__(self):
         s = ''
         for rule in self.rset:
             s += str(rule) + '\n'
         return s
+
+class ParserTable:
+    def __init__(self, grammar):
+        items = grammar.items()
+        size = len(items)
+
+        self.a = [dict() for i in range(size)]
+        self.g = [dict() for i in range(size)]
+        self.conflict = False
+        
+        for i in range(len(items)):
+            item = items[i]
+            for dot_rule in item.rset:
+                if dot_rule.end():
+                    if dot_rule.lookup in self.a[i]:
+                        self.conflict = True
+                    else:
+                        self.a[i][dot_rule.lookup] = ('R', dot_rule.rule)
+                else:
+                    at_dot = dot_rule.at()
+                    if at_dot == '#':
+                        self.a[i]['#'] = ('A', None)
+                    elif type(at_dot) is str:
+                        go = item.goto(at_dot)
+                        if go is not None:
+                            goto_index = items.index(go)
+                            if at_dot in self.a[i]:
+                                self.conflict = True
+                            "Always SHIFT if conflict happens"
+                            self.a[i][at_dot] = ('S', goto_index)
+            for nterm in grammar.nonterminals():
+                self.g[i][nterm] = items.index(item.goto(nterm))
 
 Sp = Nonterminal('S\'')
 S = Nonterminal('S')
@@ -221,18 +248,14 @@ r = [
 
 G = Grammar(r)
 
-print(r[0].sequence)
-print(G.first(S))
-print(G.follow(S))
-trs = G.trace()
-
-f = open('out.txt', 'w')
-for i in range(len(trs[0])):
-    f.write('[' + str(i) + ']\n')
-    f.write(str(trs[0][i]))
-    f.write('\n\n')
-    for tr_to in trs[1][i]:
-        a = tr_to[0]
-        c = tr_to[1]
-        f.write(str(a) + '  >->  ' + str(c) + '\n')
-    f.write('******\n')
+pt = ParserTable(G)
+print(pt.conflict)
+for i in range(len(pt.a)):
+    print("State #" + str(i))
+    for k, v in pt.a[i].items():
+        s = k + ' '
+        if v[0] in ['S', 'R']:
+            s += v[0] + ' ' + str(v[1])
+        else:
+            s += 'A'
+        print(s)
