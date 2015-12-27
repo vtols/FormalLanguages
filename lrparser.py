@@ -59,11 +59,16 @@ class RuleWithDot:
                 s += '.'
             if type(el) is str:
                 s += el
+            elif type(el) is End:
+                s += '$'
             else:
                 s += el.name
         if self.position == len(self.rule.sequence):
             s += '.'
-        s += ',  ' + self.lookup
+        if self.lookup == End():
+            s += ',  $'
+        else:
+            s += ',  ' + self.lookup
         return s
 
 class Grammar:
