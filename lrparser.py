@@ -1,5 +1,18 @@
 import copy
 
+class Singleton(type):
+    obj = None
+    def __call__(self, *args, **kwargs):
+        if Singleton.obj is None:
+            Singleton.obj = type.__call__(self, *args)
+        return Singleton.obj
+
+class End(metaclass=Singleton):
+    pass
+
+class Empty(metaclass=Singleton):
+    pass
+
 class Nonterminal:
     def __init__(self, name):
         self.name = name
@@ -16,7 +29,7 @@ class Rule:
         return self.nterm == other.nterm and self.sequence == other.sequence
 
 class RuleWithDot:
-    def __init__(self, rule, lookup='#', position=0):
+    def __init__(self, rule, lookup=End(), position=0):
         self.rule = rule
         self.lookup = lookup
         self.position = position
@@ -54,11 +67,13 @@ class RuleWithDot:
         return s
 
 class Grammar:
-    def __init__(self, rules):
-        self.rules = rules
+    def __init__(self, rules, start=None):
+        if start is None:
+            start = rules[0].nterm
+        self.rules = [Rule(Nonterminal(''), [start, End()])] + rules
 
     def first(self, nt, stack=None):
-        if type(nt) is str:
+        if type(nt) in [str, End]:
             return [nt]
         if stack == None:
             stack = []
@@ -91,7 +106,7 @@ class Grammar:
                 if el == nt:
                     if i < len(seq) - 1:
                         enext = seq[i + 1]
-                        if type(enext) is str:
+                        if type(enext) in [str, End]:
                             f = f | {enext}
                         else:
                             f = f | self.first(enext)
@@ -106,29 +121,31 @@ class Grammar:
             for el in rule.sequence:
                 if type(el) is str:
                     s += el
+                if type(el) is End:
+                    s += '$'
                 else:
                     s += el.name
             s += '\n'
         return s
     
     def terminals(self):
-        t = []
+        t = set()
         for rule in self.rules:
             for el in rule.sequence:
-                if type(el) is str and el not in t:
-                    t += [el]
-        return t
+                if type(el) in [str, End]:
+                    t |= {el}
+        return list(t)
     
     def nonterminals(self):
-        t = []
+        t = set()
         for rule in self.rules:
             for el in rule.sequence:
-                if type(el) is Nonterminal and el not in t:
-                    t += [el]
-        return t
+                if type(el) is Nonterminal:
+                    t |= {el}
+        return list(t)
 
     def items(self):
-        r = RuleWithDot(self.rules[0], '#')
+        r = RuleWithDot(self.rules[0], End())
         sets = [RuleSet(self, [r])]
         terms = self.terminals()
         nterms = self.nonterminals()
@@ -175,7 +192,7 @@ class RuleSet:
         p = self.gr.nonterminals() + t
         trans = []
         for tran in p:
-            if tran != '#':
+            if tran != End():
                 go = self.goto(tran)
                 if go is not None:
                     trans += [go]
@@ -183,7 +200,7 @@ class RuleSet:
 
     def goto(self, x):
         goto_set = None
-        if x != '#':
+        if x != End():
             nbase = []
             for drule in self.rset:
                 if not drule.end() and drule.at() == x:
@@ -221,8 +238,8 @@ class ParserTable:
                         self.a[i][dot_rule.lookup] = ('R', dot_rule.rule)
                 else:
                     at_dot = dot_rule.at()
-                    if at_dot == '#':
-                        self.a[i]['#'] = ('A', None)
+                    if at_dot == End():
+                        self.a[i][End()] = ('A', None)
                     elif type(at_dot) is str:
                         go = item.goto(at_dot)
                         if go is not None:
@@ -278,7 +295,7 @@ class Parser:
                 break
 
     def end(self):
-        self.put('#')
+        self.put(End())
         if self.error:
             return None
         return self.symbol[0]
