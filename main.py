@@ -1,11 +1,15 @@
 import grammarparser
 import lrparser
+import io
 
-f = open('in.txt', 'r')
-gp = grammarparser.GrammarParser(f)
-r = gp.parse()
-g = lrparser.Grammar(r)
-p = lrparser.Parser(g)
-res = p.parse("bbca")
-if not p.error:
-    lrparser.print_res(res)
+str_grammar = ('S : A "b" | B "a" | S S;\n'
+               'A : "b";\n'
+               'B : "c";\n')
+str_io = io.StringIO(str_grammar)
+grparser = grammarparser.GrammarParser(str_io)
+rules = grparser.parse()
+grammar = lrparser.Grammar(rules)
+parser = lrparser.Parser(grammar)
+result = parser.parse("bbca")
+if not parser.error:
+    lrparser.print_res(result)
