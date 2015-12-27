@@ -42,6 +42,7 @@ class GrammarLexer:
             while self.c != '"':
                 self.move()
             self.move()
+            self.value = self.value[1:-1]
             self.tok = GrammarLexer.Str
         elif self.c == ';':
             self.move()
