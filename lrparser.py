@@ -324,25 +324,3 @@ def print_res(res, ind=0):
             print_res(it, ind + 1)
         else:
             print(' ' * (ind + 1) + it)
-
-"""
-Sp = Nonterminal('S\'')
-S = Nonterminal('S')
-A = Nonterminal('A')
-
-r = [
-    Rule(Sp, [S,'#']),
-    Rule(S, [S,'-',A]),
-    Rule(S, [A]),
-    Rule(A, ['-',S]),
-    Rule(A, ['(',S,')']),
-    Rule(A, ['(','(',S,')',')']),
-    Rule(A, ['1'])
-]
-
-G = Grammar(r)
-
-p = Parser(G)
-res = p.parse("-((1))")
-print_res(res)
-"""
