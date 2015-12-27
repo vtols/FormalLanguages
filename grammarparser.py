@@ -107,5 +107,4 @@ class GrammarParser:
                 seq += [self.match(GrammarLexer.Str)]
             else:
                 break
-        print(seq)
         return lrparser.Rule(self.nt, seq)
