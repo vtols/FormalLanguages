@@ -19,15 +19,14 @@ class GrammarLexer:
         self.f = f
         self.c = ''
         self.move()
-        self.tok = self.token()
+        self.token()
     
     def clear(self):
         self.value = ''
 
     def move(self):
-        print(self.c)
         if self.c:
-            self.value += 'c'
+            self.value += self.c
         self.c = self.f.read(1)
 
     def token(self):
@@ -50,6 +49,9 @@ class GrammarLexer:
         elif self.c == ':':
             self.move()
             self.tok = GrammarLexer.Colon
+        elif self.c == '|':
+            self.move()
+            self.tok = GrammarLexer.Bar
         elif self.c in GrammarLexer.letters:
             self.move()
             while self.c in GrammarLexer.letters + ['_']:
@@ -64,7 +66,7 @@ class GrammarParser:
 
     def parse(self):
         while self.lex.tok != GrammarLexer.Eof:
-            self.rules += [self.parse_rule()]
+            self.rules += self.parse_rules()
         return self.rules
 
     def current(self):
@@ -83,19 +85,27 @@ class GrammarParser:
             return v
         return None
 
-    def parse_rule(self):
-        nt = self.lookup_id()
+    def parse_rules(self):
+        self.nt = self.lookup_id()
         self.match(GrammarLexer.Colon)
+        rules = []
+        while True:
+            rules += [self.parse_rule()]
+            if self.current() == GrammarLexer.Bar:
+                self.match(GrammarLexer.Bar)
+            else:
+                self.match(GrammarLexer.Semicolon)
+                break
+        return rules
+
+    def parse_rule(self):
         seq = []
         while True:
             if self.current() == GrammarLexer.Id:
                 seq += [self.lookup_id()]
             elif self.current() == GrammarLexer.Str:
-                seq += self.match(GrammarLexer.Str)
-            elif self.current() == GrammarLexer.Bar:
-                self.match(GrammarLexer.Bar)
+                seq += [self.match(GrammarLexer.Str)]
             else:
                 break
-        self.match(GrammarLexer.Semicolon)
         print(seq)
-        return lrparser.Rule(nt, seq)
+        return lrparser.Rule(self.nt, seq)
